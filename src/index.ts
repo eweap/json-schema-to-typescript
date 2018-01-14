@@ -1,4 +1,5 @@
 import { readFileSync } from 'fs'
+import * as glob from 'glob'
 import { JSONSchema4 } from 'json-schema'
 import { endsWith, merge } from 'lodash'
 import { dirname } from 'path'
@@ -85,6 +86,28 @@ export function compileFromFile(
     stripExtension(filename),
     { cwd: dirname(filename), ...options }
   )
+}
+
+export function compileFromDir(
+  dirName: string,
+  options: Partial<Options> = DEFAULT_OPTIONS
+): Promise<{ definition: string; filepath: string; }[]> {
+  // Compile schemas
+  const compilePromises = glob.sync(
+    `${dirName}/**/*.json`
+  ).map(filepath => {
+    return compileFromFile(filepath, options).then(
+      definition => {
+        return {
+          definition,
+          filepath
+        }
+      }
+    )
+  })
+
+  // When compilation is finished
+  return Promise.all(compilePromises)
 }
 
 export async function compile(
