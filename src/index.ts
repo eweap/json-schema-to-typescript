@@ -5,7 +5,7 @@ import { endsWith, merge } from 'lodash'
 import { dirname } from 'path'
 import { Options as PrettierOptions } from 'prettier'
 import { format } from './formatter'
-import { generate } from './generator'
+import { generate, resetProcessed } from './generator'
 import { normalize } from './normalizer'
 import { optimize } from './optimizer'
 import { parse } from './parser'
@@ -81,6 +81,7 @@ export function compileFromFile(
     () => JSON.parse(contents.toString()),
     () => { throw new TypeError(`Error parsing JSON in file "${filename}"`) }
   )
+
   return compile(
     schema,
     stripExtension(filename),
@@ -92,10 +93,18 @@ export function compileFromDir(
   dirName: string,
   options: Partial<Options> = DEFAULT_OPTIONS
 ): Promise<{ definition: string; filepath: string; }[]> {
-  // Compile schemas
+  
+  // Set cwd
+  if (options.cwd && options.cwd !== DEFAULT_OPTIONS.cwd) {
+    error('Warning: Cannot override Options.cwd with compileFromDir()')
+  }
+  options.cwd = dirName
+
+  // Compile all schemas found in "dirName"
   const compilePromises = glob.sync(
     `${dirName}/**/*.json`
   ).map(filepath => {
+    options.cwd = dirname(filepath)
     return compileFromFile(filepath, options).then(
       definition => {
         return {
@@ -107,7 +116,12 @@ export function compileFromDir(
   })
 
   // When compilation is finished
-  return Promise.all(compilePromises)
+  const compilationsPromise = Promise.all(compilePromises)
+  
+  // Reset processed
+  compilationsPromise.then(() => resetProcessed())
+
+  return compilationsPromise
 }
 
 export async function compile(

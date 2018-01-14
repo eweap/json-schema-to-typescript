@@ -7,12 +7,29 @@ import {
 } from './types/AST'
 import { log, toSafeString } from './utils'
 
+let processedNamedTypes = new Set<AST>()
+let processedNamedInterfaces = new Set<AST>()
+let processedEnums = new Set<AST>()
+
+export function resetProcessed(): void {
+  processedNamedTypes.clear()
+  processedNamedInterfaces.clear()
+  processedEnums.clear()
+}
+
 export function generate(ast: AST, options = DEFAULT_OPTIONS): string {
+  const declaredNamedTypes = declareNamedTypes(ast, options, processedNamedTypes)
+  processedNamedTypes = declaredNamedTypes.processed
+  const declaredNamedInterfaces = declareNamedInterfaces(ast, options, ast.standaloneName!, processedNamedInterfaces)
+  processedNamedInterfaces = declaredNamedInterfaces.processed
+  const declaredEnums = declareEnums(ast, options, processedEnums)
+  processedEnums = declaredEnums.processed
+
   return [
     options.bannerComment,
-    declareNamedTypes(ast, options),
-    declareNamedInterfaces(ast, options, ast.standaloneName!),
-    declareEnums(ast, options)
+    declaredNamedTypes.type,
+    declaredNamedInterfaces.type,
+    declaredEnums.type
   ]
     .filter(Boolean)
     .join('\n\n')
@@ -23,10 +40,18 @@ function declareEnums(
   ast: AST,
   options: Options,
   processed = new Set<AST>()
-): string {
-
-  if (processed.has(ast)) {
-    return ''
+): { type: string, processed: Set<AST> } {
+  // Search for processed enums with the same name
+  const processedResults = Array.from(processed.keys()).filter(processedAST => {
+    if (processedAST.standaloneName === undefined || ast.standaloneName === undefined) {
+      return false
+    }
+    
+    return processedAST.standaloneName === ast.standaloneName
+  }) || []
+  
+  if (processed.has(ast) || processedResults.length > 0) {
+    return { type: '', processed }
   }
 
   processed.add(ast)
@@ -42,14 +67,14 @@ function declareEnums(
       return ast.params.reduce((prev, ast) => prev + declareEnums(ast, options, processed), '')
     case 'INTERFACE':
       type = getSuperTypesAndParams(ast).reduce((prev, ast) =>
-        prev + declareEnums(ast, options, processed),
+        prev + declareEnums(ast, options, processed).type,
         '')
       break
     default:
-      return ''
+      type = ''
   }
 
-  return type
+  return { type, processed }
 }
 
 function declareNamedInterfaces(
@@ -57,10 +82,9 @@ function declareNamedInterfaces(
   options: Options,
   rootASTName: string,
   processed = new Set<AST>()
-): string {
-
+): { type: string, processed: Set<AST> } {
   if (processed.has(ast)) {
-    return ''
+    return { type: '', processed }
   }
 
   processed.add(ast)
@@ -68,35 +92,33 @@ function declareNamedInterfaces(
 
   switch (ast.type) {
     case 'ARRAY':
-      type = declareNamedInterfaces((ast as TArray).params, options, rootASTName, processed)
-      break
+      return declareNamedInterfaces((ast as TArray).params, options, rootASTName, processed)
     case 'INTERFACE':
       type = [
         hasStandaloneName(ast) && (ast.standaloneName === rootASTName || options.declareExternallyReferenced) && generateStandaloneInterface(ast, options),
         getSuperTypesAndParams(ast).map(ast =>
-          declareNamedInterfaces(ast, options, rootASTName, processed)
+          declareNamedInterfaces(ast, options, rootASTName, processed).type
         ).filter(Boolean).join('\n')
       ].filter(Boolean).join('\n')
       break
     case 'INTERSECTION':
     case 'UNION':
-      type = ast.params.map(_ => declareNamedInterfaces(_, options, rootASTName, processed)).filter(Boolean).join('\n')
+      type = ast.params.map(_ => declareNamedInterfaces(_, options, rootASTName, processed).type).filter(Boolean).join('\n')
       break
     default:
       type = ''
   }
 
-  return type
+  return { type, processed }
 }
 
 function declareNamedTypes(
   ast: AST,
   options: Options,
   processed = new Set<AST>()
-): string {
-
+): { type: string, processed: Set<AST> } {
   if (processed.has(ast)) {
-    return ''
+    return { type: '', processed }
   }
 
   processed.add(ast)
@@ -105,7 +127,7 @@ function declareNamedTypes(
   switch (ast.type) {
     case 'ARRAY':
       type = [
-        declareNamedTypes(ast.params, options, processed),
+        declareNamedTypes(ast.params, options, processed).type,
         hasStandaloneName(ast) ? generateStandaloneType(ast, options) : undefined
       ].filter(Boolean).join('\n')
       break
@@ -113,14 +135,14 @@ function declareNamedTypes(
       type = ''
       break
     case 'INTERFACE':
-      type = getSuperTypesAndParams(ast).map(ast => declareNamedTypes(ast, options, processed)).filter(Boolean).join('\n')
+      type = getSuperTypesAndParams(ast).map(ast => declareNamedTypes(ast, options, processed).type).filter(Boolean).join('\n')
       break
     case 'INTERSECTION':
     case 'TUPLE':
     case 'UNION':
       type = [
         hasStandaloneName(ast) ? generateStandaloneType(ast, options) : undefined,
-        ast.params.map(ast => declareNamedTypes(ast, options, processed)).filter(Boolean).join('\n')
+        ast.params.map(ast => declareNamedTypes(ast, options, processed).type).filter(Boolean).join('\n')
       ].filter(Boolean).join('\n')
       break
     default:
@@ -129,7 +151,7 @@ function declareNamedTypes(
       }
   }
 
-  return type
+  return { type, processed }
 }
 
 function generateType(ast: AST, options: Options): string {
