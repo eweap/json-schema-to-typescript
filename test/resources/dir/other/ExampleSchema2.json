@@ -13,8 +13,8 @@
       "type": "string"
     },
     "category": {
-      "type": "array"
+      "$ref": "../enum/CategoryEnum.json"
     }
   },
-  "required": ["firstName", "lastName"]
+  "required": ["id", "name", "category"]
 }

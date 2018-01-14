@@ -1,0 +1,15 @@
+{
+  "id": "http://dummy.com/api/example-schema",
+  "title": "Category Enum",
+  "type": "string",
+  "enum": [
+    "category1",
+    "category2",
+    "category3"
+  ],
+  "tsEnumNames": [
+    "Category1",
+    "Category2",
+    "Category3"
+  ]
+}

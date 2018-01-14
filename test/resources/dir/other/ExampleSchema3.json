@@ -1,0 +1,14 @@
+{
+  "id": "http://dummy.com/api/example-schema",
+  "title": "Example Schema 3",
+  "type": "object",
+  "properties": {
+    "category": {
+      "type": "array",
+      "items": {
+        "$ref": "../enum/CategoryEnum.json"
+      }
+    }
+  },
+  "required": ["category"]
+}

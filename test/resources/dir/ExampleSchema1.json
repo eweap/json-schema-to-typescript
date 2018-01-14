@@ -9,19 +9,8 @@
     "lastName": {
       "type": "string"
     },
-    "age": {
-      "description": "Age in years",
-      "type": "integer",
-      "minimum": 0
-    },
-    "height": {
-      "type": "number"
-    },
-    "favoriteFoods": {
-      "type": "array"
-    },
-    "likesDogs": {
-      "type": "boolean"
+    "category": {
+      "$ref": "./enum/CategoryEnum.json"
     }
   },
   "required": ["firstName", "lastName"]
