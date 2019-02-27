@@ -12,6 +12,7 @@ import { dereference } from './resolver'
 import { error, stripExtension, Try } from './utils'
 import { validate } from './validator'
 import { Options as $RefOptions } from 'json-schema-ref-parser'
+import * as glob from 'glob'
 
 export { EnumJSONSchema, JSONSchema, NamedEnumJSONSchema, CustomTypeJSONSchema } from './types/JSONSchema'
 
@@ -86,6 +87,51 @@ export function compileFromFile(
     stripExtension(filename),
     { cwd: dirname(filename), ...options }
   )
+}
+
+export async function compileFromDir(
+  dirPath: string,
+  options: Partial<Options> = DEFAULT_OPTIONS
+): Promise<void> {
+  const fullOptions: Options = {...DEFAULT_OPTIONS, ...options };
+
+  // Set cwd
+  if (fullOptions.cwd !== DEFAULT_OPTIONS.cwd) {
+    throw new ReferenceError(`Unable to override Options.cwd with compileFromDir()`)
+  }
+  // fullOptions.cwd = dirPath
+
+  compileFromDirFile(
+    glob.sync(`${dirPath}/**/*.json`)[0],
+    fullOptions
+  );
+
+  // glob.sync(
+  //   `${dirPath}/**/*.json`
+  // ).map(filePath => {
+  //   compileFromDirFile(filePath);
+  // })
+}
+
+async function compileFromDirFile(filename: string, options: Options): Promise<void> {
+  const contents = Try(
+    () => readFileSync(filename),
+    () => { throw new ReferenceError(`Unable to read file "${filename}"`) }
+  )
+  const schema = Try<JSONSchema4>(
+    () => JSON.parse(contents.toString()),
+    () => { throw new TypeError(`Error parsing JSON in file "${filename}"`) }
+  )
+
+  console.log('filename', filename)
+  const cwd = dirname(filename);
+  console.log('old cwd', options.cwd)
+  console.log('new cwd', cwd)
+  const dereferencedSchema = await dereference(schema, {cwd, ...options});
+  console.log('dereferencedSchema', dereferencedSchema)
+  // const compiled = await compile(schema, stripExtension(filename), options)
+  // console.log('compiled', compiled);
+  // console.log(await compileFromFile(filePath, options));
 }
 
 export async function compile(
