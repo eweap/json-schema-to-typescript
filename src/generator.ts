@@ -46,10 +46,10 @@ function declareEnums(
     if (processedAST.standaloneName === undefined || ast.standaloneName === undefined) {
       return false
     }
-    
+
     return processedAST.standaloneName === ast.standaloneName
   }) || []
-  
+
   if (processed.has(ast) || processedResults.length > 0) {
     return { type: '', processed }
   }
@@ -64,7 +64,7 @@ function declareEnums(
     case 'ARRAY':
       return declareEnums(ast.params, options, processed)
     case 'TUPLE':
-      return ast.params.reduce((prev, ast) => prev + declareEnums(ast, options, processed), '')
+      return ast.params.reduce((prev, ast) => prev + declareEnums(ast, options, processed), '') as any
     case 'INTERFACE':
       type = getSuperTypesAndParams(ast).reduce((prev, ast) =>
         prev + declareEnums(ast, options, processed).type,
